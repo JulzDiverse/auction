@@ -5,18 +5,30 @@ import (
 	"code.cloudfoundry.org/rep"
 )
 
-type LrpZoneFilter func([]lrpByZone, *auctiontypes.LRPAuction) ([]lrpByZone, error)
+type LrpZoneFilter func([]lrpByZone, *auctiontypes.LRPAuction, LrpCellFilter) ([]lrpByZone, error)
 type LrpCellFilter func(rep.PlacementConstraint, *Zone) ([]*Cell, error)
+type AuctionTypeFunc func(*Selector)
 
 type Selector struct {
 	ZoneFilter LrpZoneFilter
 	CellFilter LrpCellFilter
 }
 
-func applyFilters(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, selectors ...Selector) ([]lrpByZone, error) {
+func newSelector(option AuctionTypeFunc) *Selector {
+	var s Selector
+	option(&s)
+	return &s
+}
+
+func classicAuction(s *Selector) {
+	s.ZoneFilter = filterZones
+	s.CellFilter = filterCells
+}
+
+func applyFilters(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, selectors ...*Selector) ([]lrpByZone, error) {
 	filteredZones := zones
 	for _, selector := range selectors {
-		tmpFilteredZones, err := selector.ZoneFilter(filteredZones, lrpAuction)
+		tmpFilteredZones, err := selector.ZoneFilter(filteredZones, lrpAuction, selector.CellFilter)
 		if err != nil {
 			return nil, err
 		}
@@ -25,13 +37,14 @@ func applyFilters(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, select
 	return filteredZones, nil
 }
 
-func filterZonesDifferent(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction) ([]lrpByZone, error) {
-
+func filterZonesDifferent(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, filterCells LrpCellFilter) ([]lrpByZone, error) {
+	//newZones := []lrpByZone{}
+	//newZones = append(newZones, zones[0])
 	//just a test
 	return zones, nil
 }
 
-func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction) ([]lrpByZone, error) {
+func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, filterCells LrpCellFilter) ([]lrpByZone, error) {
 	filteredZones := []lrpByZone{}
 	var zoneError error
 
@@ -60,6 +73,11 @@ func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction) ([]lrpB
 		return nil, zoneError
 	}
 
+	/*
+	  moved sorting from scheduleLRPAuction() to filterZones as the filter
+	  should deside how zones/cells are sorted
+	*/
+	filteredZones = sortZonesByInstances(filteredZones)
 	return filteredZones, nil
 }
 

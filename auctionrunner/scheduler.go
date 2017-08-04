@@ -14,32 +14,6 @@ import (
 
 type Zone []*Cell
 
-func (z *Zone) filterCells(pc rep.PlacementConstraint) ([]*Cell, error) {
-	var cells = make([]*Cell, 0, len(*z))
-	err := auctiontypes.ErrorCellMismatch
-
-	for _, cell := range *z {
-		if cell.MatchRootFS(pc.RootFs) {
-			if err == auctiontypes.ErrorCellMismatch {
-				err = auctiontypes.ErrorVolumeDriverMismatch
-			}
-
-			if cell.MatchVolumeDrivers(pc.VolumeDrivers) {
-				if err == auctiontypes.ErrorVolumeDriverMismatch {
-					err = auctiontypes.NewPlacementTagMismatchError(pc.PlacementTags)
-				}
-
-				if cell.MatchPlacementTags(pc.PlacementTags) {
-					err = nil
-					cells = append(cells, cell)
-				}
-			}
-		}
-	}
-
-	return cells, err
-}
-
 type Scheduler struct {
 	workPool                      *workpool.WorkPool
 	zones                         map[string]Zone
@@ -262,8 +236,13 @@ func (s *Scheduler) scheduleLRPAuction(lrpAuction *auctiontypes.LRPAuction) (*au
 	winnerScore := 1e20
 
 	zones := accumulateZonesByInstances(s.zones, lrpAuction.ProcessGuid)
-
-	filteredZones, err := filterZones(zones, lrpAuction)
+	//*******START JULZ *******
+	selectors := []Selector{
+		Selector{filterZones, filterCells},
+		Selector{filterZonesDifferent, filterCells},
+	}
+	filteredZones, err := applyFilters(zones, lrpAuction, selectors...)
+	//*******END JULZ**********
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +301,7 @@ func (s *Scheduler) scheduleTaskAuction(taskAuction *auctiontypes.TaskAuction, s
 	var zoneError error
 
 	for _, zone := range s.zones {
-		cells, err := zone.filterCells(taskAuction.PlacementConstraint)
+		cells, err := filterCells(taskAuction.PlacementConstraint, &zone)
 		if err != nil {
 			_, isZoneErrorPlacementTagMismatchError := zoneError.(auctiontypes.PlacementTagMismatchError)
 			_, isErrPlacementTagMismatchError := err.(auctiontypes.PlacementTagMismatchError)

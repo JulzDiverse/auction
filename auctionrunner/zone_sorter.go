@@ -2,8 +2,6 @@ package auctionrunner
 
 import (
 	"sort"
-
-	"code.cloudfoundry.org/auction/auctiontypes"
 )
 
 type lrpByZone struct {
@@ -41,36 +39,4 @@ func sortZonesByInstances(zones []lrpByZone) []lrpByZone {
 	sorter := zoneSorterByInstances{zones: zones}
 	sort.Sort(sorter)
 	return sorter.zones
-}
-
-func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction) ([]lrpByZone, error) {
-	filteredZones := []lrpByZone{}
-	var zoneError error
-
-	for _, lrpZone := range zones {
-		cells, err := lrpZone.zone.filterCells(lrpAuction.PlacementConstraint)
-		if err != nil {
-			_, isZoneErrorPlacementTagMismatchError := zoneError.(auctiontypes.PlacementTagMismatchError)
-			_, isErrPlacementTagMismatchError := err.(auctiontypes.PlacementTagMismatchError)
-
-			if isZoneErrorPlacementTagMismatchError ||
-				(zoneError == auctiontypes.ErrorVolumeDriverMismatch && isErrPlacementTagMismatchError) ||
-				zoneError == auctiontypes.ErrorCellMismatch || zoneError == nil {
-				zoneError = err
-			}
-			continue
-		}
-
-		filteredZone := lrpByZone{
-			zone:      Zone(cells),
-			instances: lrpZone.instances,
-		}
-		filteredZones = append(filteredZones, filteredZone)
-	}
-
-	if len(filteredZones) == 0 {
-		return nil, zoneError
-	}
-
-	return filteredZones, nil
 }

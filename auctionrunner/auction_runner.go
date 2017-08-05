@@ -107,10 +107,10 @@ func (a *auctionRunner) Run(signals <-chan os.Signal, ready chan<- struct{}) err
 				Tasks: taskAuctions,
 			}
 			//**** JULZ CHANGE ****
-			classicFilter := newSelector(usingClassicFilter)
+			classicFilter := NewSelector(UsingClassicFilter)
 			selectors := []*Selector{classicFilter}
 
-			scheduler := NewScheduler(a.workPool, zones, a.clock, logger, a.startingContainerWeight, a.startingContainerCountMaximum, utilize, selectors)
+			scheduler := NewScheduler(a.workPool, zones, a.clock, logger, a.startingContainerWeight, a.startingContainerCountMaximum, UtilizationLot, selectors)
 			// **** END CHANGE ****
 			auctionResults := scheduler.Schedule(auctionRequest)
 			logger.Info("scheduled", lager.Data{

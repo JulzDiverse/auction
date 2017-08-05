@@ -14,13 +14,13 @@ type Selector struct {
 	CellFilter LrpCellFilter
 }
 
-func newSelector(option FilterTypeFunc) *Selector {
+func NewSelector(option FilterTypeFunc) *Selector {
 	var s Selector
 	option(&s)
 	return &s
 }
 
-func usingClassicFilter(s *Selector) {
+func UsingClassicFilter(s *Selector) {
 	s.ZoneFilter = filterZones
 	s.CellFilter = filterCells
 }

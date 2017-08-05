@@ -11,7 +11,7 @@ func (c *Cell) CallForBid(lrp *rep.LRP, startingContainerWeight float64, sf Scor
 	return score, err
 }
 
-func utilize(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
+func UtilizationLot(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
 	err := c.state.ResourceMatch(&lrp.Resource)
 	if err != nil {
 		return 0, err

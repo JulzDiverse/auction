@@ -7,20 +7,20 @@ import (
 
 type LrpZoneFilter func([]lrpByZone, *auctiontypes.LRPAuction, LrpCellFilter) ([]lrpByZone, error)
 type LrpCellFilter func(rep.PlacementConstraint, *Zone) ([]*Cell, error)
-type AuctionTypeFunc func(*Selector)
+type FilterTypeFunc func(*Selector)
 
 type Selector struct {
 	ZoneFilter LrpZoneFilter
 	CellFilter LrpCellFilter
 }
 
-func newSelector(option AuctionTypeFunc) *Selector {
+func newSelector(option FilterTypeFunc) *Selector {
 	var s Selector
 	option(&s)
 	return &s
 }
 
-func classicAuction(s *Selector) {
+func usingClassicFilter(s *Selector) {
 	s.ZoneFilter = filterZones
 	s.CellFilter = filterCells
 }
@@ -35,13 +35,6 @@ func applyFilters(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, select
 		filteredZones = tmpFilteredZones
 	}
 	return filteredZones, nil
-}
-
-func filterZonesDifferent(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, filterCells LrpCellFilter) ([]lrpByZone, error) {
-	//newZones := []lrpByZone{}
-	//newZones = append(newZones, zones[0])
-	//just a test
-	return zones, nil
 }
 
 func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, filterCells LrpCellFilter) ([]lrpByZone, error) {

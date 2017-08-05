@@ -233,47 +233,19 @@ func (s *Scheduler) commitCells() []rep.Work {
 
 func (s *Scheduler) scheduleLRPAuction(lrpAuction *auctiontypes.LRPAuction) (*auctiontypes.LRPAuction, error) {
 	var winnerCell *Cell
-	winnerScore := 1e20
 
 	zones := accumulateZonesByInstances(s.zones, lrpAuction.ProcessGuid)
+
 	//*******START JULZ ******
-	classicAuction := newSelector(classicAuction)
-	selectors := []*Selector{classicAuction}
+	classicFilter := newSelector(usingClassicFilter)
+	selectors := []*Selector{classicFilter}
 	filteredZones, err := applyFilters(zones, lrpAuction, selectors...)
-	//*******END JULZ**********
 	if err != nil {
 		return nil, err
 	}
 
-	problems := map[string]struct{}{"disk": struct{}{}, "memory": struct{}{}, "containers": struct{}{}}
-
-	s.logger.Info("schedule-lrp-auction", lager.Data{"problems": problems})
-	for zoneIndex, lrpByZone := range filteredZones {
-		for _, cell := range lrpByZone.zone {
-			score, err := cell.ScoreForLRP(&lrpAuction.LRP, s.startingContainerWeight)
-			if err != nil {
-				removeNonApplicableProblems(problems, err)
-				s.logger.Info("schedule-lrp-auction-after-error", lager.Data{"problems": problems, "error": err})
-				continue
-			}
-
-			if score < winnerScore {
-				winnerScore = score
-				winnerCell = cell
-			}
-		}
-
-		// if (not last zone) && (this zone has the same # of instances as the next sorted zone)
-		// acts as a tie breaker
-		if zoneIndex+1 < len(filteredZones) &&
-			lrpByZone.instances == filteredZones[zoneIndex+1].instances {
-			continue
-		}
-
-		if winnerCell != nil {
-			break
-		}
-	}
+	winnerCell, problems := runLRPAuction(s, filteredZones, lrpAuction)
+	//*******END JULZ**********
 
 	if winnerCell == nil {
 		return nil, &rep.InsufficientResourcesError{Problems: problems}

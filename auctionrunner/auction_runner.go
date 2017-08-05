@@ -106,8 +106,12 @@ func (a *auctionRunner) Run(signals <-chan os.Signal, ready chan<- struct{}) err
 				LRPs:  lrpAuctions,
 				Tasks: taskAuctions,
 			}
+			//**** JULZ CHANGE ****
+			classicFilter := newSelector(usingClassicFilter)
+			selectors := []*Selector{classicFilter}
 
-			scheduler := NewScheduler(a.workPool, zones, a.clock, logger, a.startingContainerWeight, a.startingContainerCountMaximum)
+			scheduler := NewScheduler(a.workPool, zones, a.clock, logger, a.startingContainerWeight, a.startingContainerCountMaximum, utilize, selectors)
+			// **** END CHANGE ****
 			auctionResults := scheduler.Schedule(auctionRequest)
 			logger.Info("scheduled", lager.Data{
 				"successful-lrp-start-auctions": len(auctionResults.SuccessfulLRPs),

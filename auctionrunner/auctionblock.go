@@ -1,49 +1,31 @@
 package auctionrunner
 
 import (
-	"code.cloudfoundry.org/auction/auctiontypes"
-	"code.cloudfoundry.org/lager"
+	"code.cloudfoundry.org/rep"
 )
 
-type lrpAuctionFunc func(*Scheduler, []lrpByZone, *auctiontypes.LRPAuction) (*Cell, map[string]struct{})
+type ScoringFunc func(*Cell, *rep.LRP, float64) (float64, error)
 
-func applyScoring() {
-
+func (c *Cell) CallForBid(lrp *rep.LRP, startingContainerWeight float64, sf ScoringFunc) (float64, error) {
+	score, err := sf(c, lrp, startingContainerWeight)
+	return score, err
 }
 
-func runLRPAuction(s *Scheduler, filteredZones []lrpByZone, lrpAuction *auctiontypes.LRPAuction) (*Cell, map[string]struct{}) {
-	var winnerCell *Cell
-	winnerScore := 1e20
+func utilize(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
+	err := c.state.ResourceMatch(&lrp.Resource)
+	if err != nil {
+		return 0, err
+	}
 
-	problems := map[string]struct{}{"disk": struct{}{}, "memory": struct{}{}, "containers": struct{}{}}
-
-	s.logger.Info("schedule-lrp-auction", lager.Data{"problems": problems})
-
-	for zoneIndex, lrpByZone := range filteredZones {
-		for _, cell := range lrpByZone.zone {
-			score, err := cell.ScoreForLRP(&lrpAuction.LRP, s.startingContainerWeight)
-			if err != nil {
-				removeNonApplicableProblems(problems, err)
-				s.logger.Info("schedule-lrp-auction-after-error", lager.Data{"problems": problems, "error": err})
-				continue
-			}
-
-			if score < winnerScore {
-				winnerScore = score
-				winnerCell = cell
-			}
-		}
-
-		// if (not last zone) && (this zone has the same # of instances as the next sorted zone)
-		// acts as a tie breaker
-		if zoneIndex+1 < len(filteredZones) &&
-			lrpByZone.instances == filteredZones[zoneIndex+1].instances {
-			continue
-		}
-
-		if winnerCell != nil {
-			break
+	numberOfInstancesWithMatchingProcessGuid := 0
+	for i := range c.state.LRPs {
+		if c.state.LRPs[i].ProcessGuid == lrp.ProcessGuid {
+			numberOfInstancesWithMatchingProcessGuid++
 		}
 	}
-	return winnerCell, problems
+
+	localityScore := LocalityOffset * numberOfInstancesWithMatchingProcessGuid
+
+	resourceScore := c.state.ComputeScore(&lrp.Resource, startingContainerWeight)
+	return resourceScore + float64(localityScore), nil
 }

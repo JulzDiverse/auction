@@ -22,6 +22,7 @@ type auctionRunner struct {
 	workPool                      *workpool.WorkPool
 	startingContainerWeight       float64
 	startingContainerCountMaximum int
+	auctionType                   *AuctionType
 }
 
 func New(
@@ -32,6 +33,7 @@ func New(
 	workPool *workpool.WorkPool,
 	startingContainerWeight float64,
 	startingContainerCountMaximum int,
+	auctionType *AuctionType,
 ) *auctionRunner {
 	return &auctionRunner{
 		logger: logger,
@@ -43,6 +45,7 @@ func New(
 		workPool:                      workPool,
 		startingContainerWeight:       startingContainerWeight,
 		startingContainerCountMaximum: startingContainerCountMaximum,
+		auctionType:                   auctionType,
 	}
 }
 
@@ -106,12 +109,8 @@ func (a *auctionRunner) Run(signals <-chan os.Signal, ready chan<- struct{}) err
 				LRPs:  lrpAuctions,
 				Tasks: taskAuctions,
 			}
-			//**** JULZ CHANGE ****
-			classicFilter := NewSelector(UsingClassicFilter)
-			selectors := []*Selector{classicFilter}
 
-			scheduler := NewScheduler(a.workPool, zones, a.clock, logger, a.startingContainerWeight, a.startingContainerCountMaximum, UtilizationLot, selectors)
-			// **** END CHANGE ****
+			scheduler := NewScheduler(a.workPool, zones, a.clock, logger, a.startingContainerWeight, a.startingContainerCountMaximum, a.auctionType)
 			auctionResults := scheduler.Schedule(auctionRequest)
 			logger.Info("scheduled", lager.Data{
 				"successful-lrp-start-auctions": len(auctionResults.SuccessfulLRPs),

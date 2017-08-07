@@ -20,9 +20,8 @@ type Scheduler struct {
 	clock                         clock.Clock
 	logger                        lager.Logger
 	startingContainerWeight       float64
-	startingContainerCountMaximum int         // <=0 means no limit
-	AuctionLot                    ScoringFunc //in an auction a lot is the item for sale
-	Selectors                     []*Selector
+	startingContainerCountMaximum int // <=0 means no limit
+	auctionType                   *AuctionType
 }
 
 func NewScheduler(
@@ -32,8 +31,7 @@ func NewScheduler(
 	logger lager.Logger,
 	startingContainerWeight float64,
 	startingContainerCountMaximum int,
-	auctionLot ScoringFunc,
-	selectors []*Selector,
+	auctionType *AuctionType,
 ) *Scheduler {
 	return &Scheduler{
 		workPool:                      workPool,
@@ -42,8 +40,7 @@ func NewScheduler(
 		logger:                        logger,
 		startingContainerWeight:       startingContainerWeight,
 		startingContainerCountMaximum: startingContainerCountMaximum,
-		AuctionLot:                    auctionLot, //CHANGE
-		Selectors:                     selectors,  //CHANGE
+		auctionType:                   auctionType, //CHANGE
 	}
 }
 
@@ -243,7 +240,7 @@ func (s *Scheduler) scheduleLRPAuction(lrpAuction *auctiontypes.LRPAuction) (*au
 	zones := accumulateZonesByInstances(s.zones, lrpAuction.ProcessGuid)
 
 	//*******START JULZ ******
-	filteredZones, err := applyFilters(zones, lrpAuction, s.Selectors...)
+	filteredZones, err := applyFilters(zones, lrpAuction, s.auctionType.AuctionFilters...)
 	if err != nil {
 		return nil, err
 	}
@@ -276,7 +273,7 @@ func (s *Scheduler) runLRPAuction(filteredZones []lrpByZone, lrpAuction *auction
 
 	for zoneIndex, lrpByZone := range filteredZones {
 		for _, cell := range lrpByZone.zone {
-			score, err := cell.CallForBid(&lrpAuction.LRP, s.startingContainerWeight, s.AuctionLot)
+			score, err := cell.CallForBid(&lrpAuction.LRP, s.startingContainerWeight, s.auctionType.AuctionLot.ScoreForLRP)
 			if err != nil {
 				removeNonApplicableProblems(problems, err)
 				s.logger.Info("schedule-lrp-auction-after-error", lager.Data{"problems": problems, "error": err})

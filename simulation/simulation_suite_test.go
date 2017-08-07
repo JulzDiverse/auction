@@ -121,6 +121,9 @@ var _ = BeforeEach(func() {
 
 	runnerDelegate = NewAuctionRunnerDelegate(cells)
 	metricEmitterDelegate := NewAuctionMetricEmitterDelegate()
+
+	auctionType := auctionrunner.NewAuctionType(auctionrunner.DefaultAuction)
+
 	runner = auctionrunner.New(
 		logger,
 		runnerDelegate,
@@ -129,6 +132,7 @@ var _ = BeforeEach(func() {
 		workPool,
 		0.25,
 		defaultMaxContainerStartCount,
+		auctionType,
 	)
 	runnerProcess = ifrit.Invoke(runner)
 })

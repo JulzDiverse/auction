@@ -29,10 +29,10 @@ func NewAuctionLot(alt AuctionLotType) *AuctionLot {
 }
 
 func UtilizationLot(at *AuctionLot) {
-	at.ScoreForLRP = scoreForLRP
+	at.ScoreForLRP = ScoreForLRP
 }
 
-func scoreForLRP(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
+func ScoreForLRP(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
 	err := c.state.ResourceMatch(&lrp.Resource)
 	if err != nil {
 		return 0, err

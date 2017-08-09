@@ -32,6 +32,10 @@ func UtilizationLot(at *AuctionLot) {
 	at.ScoreForLRP = ScoreForLRP
 }
 
+func BestFit(at *AuctionLot) {
+	at.ScoreForLRP = bestFit
+}
+
 func ScoreForLRP(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
 	err := c.state.ResourceMatch(&lrp.Resource)
 	if err != nil {
@@ -46,7 +50,21 @@ func ScoreForLRP(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float6
 	}
 
 	localityScore := LocalityOffset * numberOfInstancesWithMatchingProcessGuid
+	score := rep.NewScoreType(rep.WorstFitFashion)
 
-	resourceScore := c.state.ComputeScore(&lrp.Resource, startingContainerWeight)
+	resourceScore := score.Compute(&c.state, &lrp.Resource, startingContainerWeight)
+
 	return resourceScore + float64(localityScore), nil
+}
+
+func bestFit(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
+	err := c.state.ResourceMatch(&lrp.Resource)
+	if err != nil {
+		return 0, err
+	}
+
+	score := rep.NewScoreType(rep.BestFitFashion)
+
+	resourceScore := score.Compute(&c.state, &lrp.Resource, startingContainerWeight)
+	return resourceScore, nil
 }

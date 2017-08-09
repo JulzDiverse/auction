@@ -14,9 +14,15 @@ func NewAuctionType(atf AuctionTypeFunc) *AuctionType {
 }
 
 func DefaultAuction(at *AuctionType) {
-	filters := []*AuctionFilter{
-		NewAuctionFilter(DefaultFilter),
-	}
+	defaultFilter := NewAuctionFilter(DefaultFilter)
+	filters := []*AuctionFilter{defaultFilter}
 	at.AuctionLot = NewAuctionLot(UtilizationLot)
+	at.AuctionFilters = filters
+}
+
+func BestFitFashion(at *AuctionType) {
+	defaultFilter := NewAuctionFilter(DefaultFilter)
+	filters := []*AuctionFilter{defaultFilter}
+	at.AuctionLot = NewAuctionLot(BestFit)
 	at.AuctionFilters = filters
 }

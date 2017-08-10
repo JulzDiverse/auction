@@ -239,14 +239,12 @@ func (s *Scheduler) scheduleLRPAuction(lrpAuction *auctiontypes.LRPAuction) (*au
 
 	zones := accumulateZonesByInstances(s.zones, lrpAuction.ProcessGuid)
 
-	//*******START JULZ ******
 	filteredZones, err := applyLRPFilters(zones, lrpAuction, s.auctionType.AuctionFilters...)
 	if err != nil {
 		return nil, err
 	}
 
 	winnerCell, problems := s.runLRPAuction(filteredZones, lrpAuction)
-	//*******END JULZ**********
 
 	if winnerCell == nil {
 		return nil, &rep.InsufficientResourcesError{Problems: problems}

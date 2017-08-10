@@ -15,6 +15,7 @@ var _ = Describe("Cell", func() {
 	var (
 		client          *repfakes.FakeSimClient
 		emptyCell, cell *auctionrunner.Cell
+		defaultAuction  *auctionrunner.AuctionType
 	)
 
 	BeforeEach(func() {
@@ -34,157 +35,10 @@ var _ = Describe("Cell", func() {
 			[]string{},
 		)
 		cell = auctionrunner.NewCell(logger, "the-cell", client, state)
-	})
-
-	Describe("ScoreForTask", func() {
-		It("factors in number of tasks currently running", func() {
-			bigTask := BuildTask("tg-big", "domain", linuxRootFSURL, 20, 10, 10, []string{}, []string{})
-			smallTask := BuildTask("tg-small", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
-
-			By("factoring in the amount of memory taken up by the task")
-			bigScore, err := emptyCell.ScoreForTask(bigTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := emptyCell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(smallScore).To(BeNumerically("<", bigScore))
-
-			By("factoring in the relative emptiness of Cells")
-			emptyScore, err := emptyCell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			score, err := cell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(emptyScore).To(BeNumerically("<", score))
-		})
-
-		It("factors in memory usage", func() {
-			bigTask := BuildTask("tg-big", "domain", linuxRootFSURL, 20, 10, 10, []string{}, []string{})
-			smallTask := BuildTask("tg-small", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
-
-			By("factoring in the amount of memory taken up by the task")
-			bigScore, err := emptyCell.ScoreForTask(bigTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := emptyCell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(smallScore).To(BeNumerically("<", bigScore))
-
-			By("factoring in the relative emptiness of Cells")
-			emptyScore, err := emptyCell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			score, err := cell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(emptyScore).To(BeNumerically("<", score))
-		})
-
-		It("factors in disk usage", func() {
-			bigTask := BuildTask("tg-big", "domain", linuxRootFSURL, 10, 20, 10, []string{}, []string{})
-			smallTask := BuildTask("tg-small", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
-
-			By("factoring in the amount of memory taken up by the task")
-			bigScore, err := emptyCell.ScoreForTask(bigTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := emptyCell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-
-			Expect(smallScore).To(BeNumerically("<", bigScore))
-
-			By("factoring in the relative emptiness of Cells")
-			emptyScore, err := emptyCell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			score, err := cell.ScoreForTask(smallTask, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(emptyScore).To(BeNumerically("<", score))
-		})
-
-		It("factors in container usage", func() {
-			task := BuildTask("tg-big", "domain", linuxRootFSURL, 20, 20, 10, []string{}, []string{})
-
-			bigState := BuildCellState("the-zone", 100, 200, 50, false, 0, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
-			bigCell := auctionrunner.NewCell(logger, "big-cell", client, bigState)
-
-			smallState := BuildCellState("the-zone", 100, 200, 20, false, 0, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
-			smallCell := auctionrunner.NewCell(logger, "small-cell", client, smallState)
-
-			bigScore, err := bigCell.ScoreForTask(task, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := smallCell.ScoreForTask(task, 0.0)
-			Expect(err).NotTo(HaveOccurred())
-			Expect(bigScore).To(BeNumerically("<", smallScore), "prefer Cells with more resources")
-		})
-
-		Context("Starting Containers", func() {
-			var task *rep.Task
-			var busyState, boredState rep.CellState
-			var busyCell, boredCell *auctionrunner.Cell
-
-			BeforeEach(func() {
-				task = BuildTask("tg-big", "domain", linuxRootFSURL, 20, 20, 20, []string{}, []string{})
-
-				busyState = BuildCellState("the-zone", 100, 200, 50, false, 10, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
-				busyCell = auctionrunner.NewCell(logger, "busy-cell", client, busyState)
-
-				boredState = BuildCellState("the-zone", 100, 200, 50, false, 0, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
-				boredCell = auctionrunner.NewCell(logger, "bored-cell", client, boredState)
-			})
-
-			It("factors in starting containers when a weight is provided", func() {
-				startingContainerWeight := 0.25
-				busyScore, err := busyCell.ScoreForTask(task, startingContainerWeight)
-				Expect(err).NotTo(HaveOccurred())
-				boredScore, err := boredCell.ScoreForTask(task, startingContainerWeight)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(busyScore).To(BeNumerically(">", boredScore), "prefer Cells that have less starting containers")
-			})
-
-			It("ignores starting containers when a weight is not provided", func() {
-				startingContainerWeight := 0.0
-				busyScore, err := busyCell.ScoreForTask(task, startingContainerWeight)
-				Expect(err).NotTo(HaveOccurred())
-				boredScore, err := boredCell.ScoreForTask(task, startingContainerWeight)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(busyScore).To(BeNumerically("==", boredScore), "ignore how many starting Containers a cell has")
-			})
-		})
-
-		Context("when the task does not fit", func() {
-			Context("because of memory constraints", func() {
-				It("should error", func() {
-					massiveMemoryTask := BuildTask("pg-new", "domain", linuxRootFSURL, 10000, 10, 1024, []string{}, []string{})
-					score, err := cell.ScoreForTask(massiveMemoryTask, 0.0)
-					Expect(score).To(BeZero())
-					Expect(err).To(MatchError("insufficient resources: memory"))
-				})
-			})
-
-			Context("because of disk constraints", func() {
-				It("should error", func() {
-					massiveDiskTask := BuildTask("pg-new", "domain", linuxRootFSURL, 10, 10000, 1024, []string{}, []string{})
-					score, err := cell.ScoreForTask(massiveDiskTask, 0.0)
-					Expect(score).To(BeZero())
-					Expect(err).To(MatchError("insufficient resources: disk"))
-				})
-			})
-
-			Context("because of container constraints", func() {
-				It("should error", func() {
-					task := BuildTask("pg-new", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
-					zeroState := BuildCellState("the-zone", 100, 100, 0, false, 0, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
-					zeroCell := auctionrunner.NewCell(logger, "zero-cell", client, zeroState)
-					score, err := zeroCell.ScoreForTask(task, 0.0)
-					Expect(score).To(BeZero())
-					Expect(err).To(MatchError("insufficient resources: containers"))
-				})
-			})
-		})
+		defaultAuction = auctionrunner.NewAuctionType(auctionrunner.DefaultAuction)
 	})
 
 	Describe("ReserveLRP", func() {
-
-		var defaultAuction *auctionrunner.AuctionType
-		BeforeEach(func() {
-			defaultAuction = auctionrunner.NewAuctionType(auctionrunner.DefaultAuction)
-		})
 
 		Context("when there is room for the LRP", func() {
 			It("should register its resources usage and keep it in mind when handling future requests", func() {
@@ -244,12 +98,12 @@ var _ = Describe("Cell", func() {
 				task := BuildTask("tg-test", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
 				taskToAdd := BuildTask("tg-new", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
 
-				initialScore, err := cell.ScoreForTask(task, 0.0)
+				initialScore, err := defaultAuction.ScoreForTask(cell, task, 0.0)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cell.ReserveTask(taskToAdd)).To(Succeed())
 
-				subsequentScore, err := cell.ScoreForTask(task, 0.0)
+				subsequentScore, err := defaultAuction.ScoreForTask(cell, task, 0.0)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(initialScore).To(BeNumerically("<", subsequentScore), "the score should have gotten worse")
 			})
@@ -258,17 +112,17 @@ var _ = Describe("Cell", func() {
 				task := BuildTask("tg-test", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
 				taskToAdd := BuildTask("tg-new", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
 
-				initialScore, err := cell.ScoreForTask(task, 0.25)
+				initialScore, err := defaultAuction.ScoreForTask(cell, task, 0.25)
 				Expect(err).NotTo(HaveOccurred())
 
-				initialScoreForTaskToAdd, err := cell.ScoreForTask(taskToAdd, 0.25)
+				initialScoreForTaskToAdd, err := defaultAuction.ScoreForTask(cell, taskToAdd, 0.25)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(initialScore).To(BeNumerically("==", initialScoreForTaskToAdd))
 
 				Expect(cell.ReserveTask(taskToAdd)).To(Succeed())
 
-				subsequentScore, err := cell.ScoreForTask(task, 0.25)
+				subsequentScore, err := defaultAuction.ScoreForTask(cell, task, 0.25)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(subsequentScore).To(BeNumerically(">", initialScore+auctionrunner.LocalityOffset), "the score should have gotten worse by at least 1")

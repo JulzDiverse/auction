@@ -2,12 +2,15 @@ package auctionrunner
 
 import "code.cloudfoundry.org/rep"
 
-type LRPScoringFunc func(*Cell, *rep.LRP, float64) (float64, error)
+type ScoringFunc func(*Cell, *rep.LRP, float64) (float64, error)
+type ScoringFuncTask func(*Cell, *rep.Task, float64) (float64, error)
 type AuctionTypeFunc func(*AuctionType)
 
 type AuctionType struct {
-	ScoreForLRP    LRPScoringFunc
-	AuctionFilters []*AuctionFilter
+	ScoreForLRP        ScoringFunc
+	AuctionFilters     []*AuctionFilter
+	ScoreForTask       ScoringFuncTask
+	AuctionTaskFilters []*AuctionTaskFilter
 }
 
 func NewAuctionType(atf AuctionTypeFunc) *AuctionType {
@@ -18,20 +21,33 @@ func NewAuctionType(atf AuctionTypeFunc) *AuctionType {
 
 func DefaultAuction(at *AuctionType) {
 	defaultFilter := NewAuctionFilter(DefaultFilter)
+	defaultTaskFilter := NewAuctionTaskFilter(DefaultTaskFilter)
 	filters := []*AuctionFilter{defaultFilter}
+	taskFilters := []*AuctionTaskFilter{defaultTaskFilter}
 	at.ScoreForLRP = scoreForLRP
 	at.AuctionFilters = filters
+	at.ScoreForTask = scoreForTask
+	at.AuctionTaskFilters = taskFilters
 }
 
 func BestFit(at *AuctionType) {
 	defaultFilter := NewAuctionFilter(DefaultFilter)
+	defaultTaskFilter := NewAuctionTaskFilter(DefaultTaskFilter)
 	filters := []*AuctionFilter{defaultFilter}
+	taskFilters := []*AuctionTaskFilter{defaultTaskFilter}
 	at.ScoreForLRP = bestFit
 	at.AuctionFilters = filters
+	at.ScoreForTask = scoreForTask
+	at.AuctionTaskFilters = taskFilters
 }
 
-func (c *Cell) CallForBid(lrp *rep.LRP, startingContainerWeight float64, sf LRPScoringFunc) (float64, error) {
+func (c *Cell) CallForLRPBid(lrp *rep.LRP, startingContainerWeight float64, sf ScoringFunc) (float64, error) {
 	score, err := sf(c, lrp, startingContainerWeight)
+	return score, err
+}
+
+func (c *Cell) CallForTaskBid(task *rep.Task, startingContainerWeight float64, sf ScoringFuncTask) (float64, error) {
+	score, err := sf(c, task, startingContainerWeight)
 	return score, err
 }
 
@@ -53,6 +69,17 @@ func scoreForLRP(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float6
 
 	resourceScore := score.Compute(&c.state, &lrp.Resource, startingContainerWeight)
 
+	return resourceScore + float64(localityScore), nil
+}
+
+func scoreForTask(c *Cell, task *rep.Task, startingContainerWeight float64) (float64, error) {
+	err := c.state.ResourceMatch(&task.Resource)
+	if err != nil {
+		return 0, err
+	}
+
+	localityScore := LocalityOffset * len(c.state.Tasks)
+	resourceScore := c.state.ComputeScore(&task.Resource, startingContainerWeight)
 	return resourceScore + float64(localityScore), nil
 }
 

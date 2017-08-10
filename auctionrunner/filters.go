@@ -5,17 +5,32 @@ import (
 	"code.cloudfoundry.org/rep"
 )
 
-type LrpZoneFilter func([]lrpByZone, *auctiontypes.LRPAuction, LrpCellFilter) ([]lrpByZone, error)
-type LrpCellFilter func(rep.PlacementConstraint, *Zone) ([]*Cell, error)
+type TaskZoneFilter func(map[string]Zone, *auctiontypes.TaskAuction, CellFilter) ([]Zone, error)
+type LrpZoneFilter func([]lrpByZone, *auctiontypes.LRPAuction, CellFilter) ([]lrpByZone, error)
+type CellFilter func(rep.PlacementConstraint, *Zone) ([]*Cell, error)
+
 type FilterTypeFunc func(*AuctionFilter)
+type TaskFilterTypeFunc func(*AuctionTaskFilter)
 
 type AuctionFilter struct {
-	ZoneFilter LrpZoneFilter
-	CellFilter LrpCellFilter
+	ZoneFilter     LrpZoneFilter
+	CellFilter     CellFilter
+	TaskZoneFilter TaskZoneFilter
+}
+
+type AuctionTaskFilter struct {
+	CellFilter CellFilter
+	ZoneFilter TaskZoneFilter
 }
 
 func NewAuctionFilter(option FilterTypeFunc) *AuctionFilter {
 	var s AuctionFilter
+	option(&s)
+	return &s
+}
+
+func NewAuctionTaskFilter(option TaskFilterTypeFunc) *AuctionTaskFilter {
+	var s AuctionTaskFilter
 	option(&s)
 	return &s
 }
@@ -25,7 +40,12 @@ func DefaultFilter(s *AuctionFilter) {
 	s.CellFilter = filterCells
 }
 
-func applyFilters(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, auctionFilters ...*AuctionFilter) ([]lrpByZone, error) {
+func DefaultTaskFilter(s *AuctionTaskFilter) {
+	s.ZoneFilter = filterZonesForTaks
+	s.CellFilter = filterCells
+}
+
+func applyLRPFilters(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, auctionFilters ...*AuctionFilter) ([]lrpByZone, error) {
 	filteredZones := zones
 	for _, filter := range auctionFilters {
 		tmpFilteredZones, err := filter.ZoneFilter(filteredZones, lrpAuction, filter.CellFilter)
@@ -37,7 +57,19 @@ func applyFilters(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, auctio
 	return filteredZones, nil
 }
 
-func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, filterCells LrpCellFilter) ([]lrpByZone, error) {
+func applyTaskFilters(zones map[string]Zone, lrpAuction *auctiontypes.TaskAuction, auctionFilters ...*AuctionTaskFilter) ([]Zone, error) {
+	filteredZones := []Zone{}
+	for _, filter := range auctionFilters {
+		tmpFilteredZones, err := filter.ZoneFilter(zones, lrpAuction, filter.CellFilter)
+		if err != nil {
+			return nil, err
+		}
+		filteredZones = tmpFilteredZones
+	}
+	return filteredZones, nil
+}
+
+func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, filterCells CellFilter) ([]lrpByZone, error) {
 	filteredZones := []lrpByZone{}
 	var zoneError error
 
@@ -98,4 +130,30 @@ func filterCells(pc rep.PlacementConstraint, z *Zone) ([]*Cell, error) {
 	}
 
 	return cells, err
+}
+
+func filterZonesForTaks(zones map[string]Zone, taskAuction *auctiontypes.TaskAuction, filterCells CellFilter) ([]Zone, error) {
+	filteredZones := []Zone{}
+	var zoneError error
+	for _, zone := range zones {
+		cells, err := filterCells(taskAuction.PlacementConstraint, &zone)
+		if err != nil {
+			_, isZoneErrorPlacementTagMismatchError := zoneError.(auctiontypes.PlacementTagMismatchError)
+			_, isErrPlacementTagMismatchError := err.(auctiontypes.PlacementTagMismatchError)
+
+			if isZoneErrorPlacementTagMismatchError ||
+				(zoneError == auctiontypes.ErrorVolumeDriverMismatch && isErrPlacementTagMismatchError) ||
+				zoneError == auctiontypes.ErrorCellMismatch || zoneError == nil {
+				zoneError = err
+			}
+			continue
+		}
+
+		filteredZones = append(filteredZones, Zone(cells))
+	}
+
+	if len(filteredZones) == 0 {
+		return nil, zoneError
+	}
+	return filteredZones, nil
 }

@@ -240,7 +240,7 @@ func (s *Scheduler) scheduleLRPAuction(lrpAuction *auctiontypes.LRPAuction) (*au
 	zones := accumulateZonesByInstances(s.zones, lrpAuction.ProcessGuid)
 
 	//*******START JULZ ******
-	filteredZones, err := applyFilters(zones, lrpAuction, s.auctionType.AuctionFilters...)
+	filteredZones, err := applyLRPFilters(zones, lrpAuction, s.auctionType.AuctionFilters...)
 	if err != nil {
 		return nil, err
 	}
@@ -273,7 +273,7 @@ func (s *Scheduler) runLRPAuction(filteredZones []lrpByZone, lrpAuction *auction
 
 	for zoneIndex, lrpByZone := range filteredZones {
 		for _, cell := range lrpByZone.zone {
-			score, err := cell.CallForBid(&lrpAuction.LRP, s.startingContainerWeight, s.auctionType.ScoreForLRP)
+			score, err := cell.CallForLRPBid(&lrpAuction.LRP, s.startingContainerWeight, s.auctionType.ScoreForLRP)
 			if err != nil {
 				removeNonApplicableProblems(problems, err)
 				s.logger.Info("schedule-lrp-auction-after-error", lager.Data{"problems": problems, "error": err})
@@ -299,50 +299,14 @@ func (s *Scheduler) runLRPAuction(filteredZones []lrpByZone, lrpAuction *auction
 	}
 	return winnerCell, problems
 }
+
 func (s *Scheduler) scheduleTaskAuction(taskAuction *auctiontypes.TaskAuction, startingContainerWeight float64) (*auctiontypes.TaskAuction, error) {
-	var winnerCell *Cell
-	winnerScore := 1e20
-
-	filteredZones := []Zone{}
-	var zoneError error
-
-	for _, zone := range s.zones {
-		cells, err := filterCells(taskAuction.PlacementConstraint, &zone)
-		if err != nil {
-			_, isZoneErrorPlacementTagMismatchError := zoneError.(auctiontypes.PlacementTagMismatchError)
-			_, isErrPlacementTagMismatchError := err.(auctiontypes.PlacementTagMismatchError)
-
-			if isZoneErrorPlacementTagMismatchError ||
-				(zoneError == auctiontypes.ErrorVolumeDriverMismatch && isErrPlacementTagMismatchError) ||
-				zoneError == auctiontypes.ErrorCellMismatch || zoneError == nil {
-				zoneError = err
-			}
-			continue
-		}
-
-		filteredZones = append(filteredZones, Zone(cells))
-	}
-
-	if len(filteredZones) == 0 {
+	filteredZones, zoneError := applyTaskFilters(s.zones, taskAuction, s.auctionType.AuctionTaskFilters...)
+	if zoneError != nil {
 		return nil, zoneError
 	}
 
-	problems := map[string]struct{}{"disk": struct{}{}, "memory": struct{}{}, "containers": struct{}{}}
-
-	for _, zone := range filteredZones {
-		for _, cell := range zone {
-			score, err := cell.ScoreForTask(&taskAuction.Task, startingContainerWeight)
-			if err != nil {
-				removeNonApplicableProblems(problems, err)
-				continue
-			}
-
-			if score < winnerScore {
-				winnerScore = score
-				winnerCell = cell
-			}
-		}
-	}
+	winnerCell, problems := s.runTaskAuction(filteredZones, taskAuction)
 
 	if winnerCell == nil {
 		return nil, &rep.InsufficientResourcesError{Problems: problems}
@@ -357,6 +321,29 @@ func (s *Scheduler) scheduleTaskAuction(taskAuction *auctiontypes.TaskAuction, s
 	winningAuction := taskAuction.Copy()
 	winningAuction.Winner = winnerCell.Guid
 	return &winningAuction, nil
+}
+
+func (s *Scheduler) runTaskAuction(filteredZones []Zone, taskAuction *auctiontypes.TaskAuction) (*Cell, map[string]struct{}) {
+	var winnerCell *Cell
+	winnerScore := 1e20
+
+	problems := map[string]struct{}{"disk": struct{}{}, "memory": struct{}{}, "containers": struct{}{}}
+
+	for _, zone := range filteredZones {
+		for _, cell := range zone {
+			score, err := cell.CallForTaskBid(&taskAuction.Task, s.startingContainerWeight, s.auctionType.ScoreForTask)
+			if err != nil {
+				removeNonApplicableProblems(problems, err)
+				continue
+			}
+
+			if score < winnerScore {
+				winnerScore = score
+				winnerCell = cell
+			}
+		}
+	}
+	return winnerCell, problems
 }
 
 // removeNonApplicableProblems modifies the 'problems' map to remove any problems that didn't show up on err.

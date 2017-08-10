@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Auctionlot", func() {
+var _ = Describe("Auctiontype", func() {
 	var (
 		client          *repfakes.FakeSimClient
 		emptyCell, cell *auctionrunner.Cell
@@ -36,22 +36,27 @@ var _ = Describe("Auctionlot", func() {
 	})
 
 	Describe("ScoreForLRP", func() {
+		var defaultAuction *auctionrunner.AuctionType
+		BeforeEach(func() {
+			defaultAuction = auctionrunner.NewAuctionType(auctionrunner.DefaultAuction)
+		})
+
 		It("factors in memory usage", func() {
 			bigInstance := BuildLRP("pg-big", "domain", 0, linuxRootFSURL, 20, 10, 10, []string{})
 			smallInstance := BuildLRP("pg-small", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 
 			By("factoring in the amount of memory taken up by the instance")
-			bigScore, err := auctionrunner.ScoreForLRP(emptyCell, bigInstance, 0.0)
+			bigScore, err := defaultAuction.ScoreForLRP(emptyCell, bigInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := auctionrunner.ScoreForLRP(emptyCell, smallInstance, 0.0)
+			smallScore, err := defaultAuction.ScoreForLRP(emptyCell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(smallScore).To(BeNumerically("<", bigScore))
 
 			By("factoring in the relative emptiness of Cells")
-			emptyScore, err := auctionrunner.ScoreForLRP(emptyCell, smallInstance, 0.0)
+			emptyScore, err := defaultAuction.ScoreForLRP(emptyCell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			score, err := auctionrunner.ScoreForLRP(cell, smallInstance, 0.0)
+			score, err := defaultAuction.ScoreForLRP(cell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(emptyScore).To(BeNumerically("<", score))
 		})
@@ -61,17 +66,17 @@ var _ = Describe("Auctionlot", func() {
 			smallInstance := BuildLRP("pg-small", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 
 			By("factoring in the amount of memory taken up by the instance")
-			bigScore, err := auctionrunner.ScoreForLRP(emptyCell, bigInstance, 0.0)
+			bigScore, err := defaultAuction.ScoreForLRP(emptyCell, bigInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := auctionrunner.ScoreForLRP(emptyCell, smallInstance, 0.0)
+			smallScore, err := defaultAuction.ScoreForLRP(emptyCell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(smallScore).To(BeNumerically("<", bigScore))
 
 			By("factoring in the relative emptiness of Cells")
-			emptyScore, err := auctionrunner.ScoreForLRP(emptyCell, smallInstance, 0.0)
+			emptyScore, err := defaultAuction.ScoreForLRP(emptyCell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			score, err := auctionrunner.ScoreForLRP(cell, smallInstance, 0.0)
+			score, err := defaultAuction.ScoreForLRP(cell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(emptyScore).To(BeNumerically("<", score))
 		})
@@ -85,9 +90,9 @@ var _ = Describe("Auctionlot", func() {
 			smallState := BuildCellState("the-zone", 100, 200, 20, false, 0, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
 			smallCell := auctionrunner.NewCell(logger, "small-cell", client, smallState)
 
-			bigScore, err := auctionrunner.ScoreForLRP(bigCell, instance, 0.0)
+			bigScore, err := defaultAuction.ScoreForLRP(bigCell, instance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := auctionrunner.ScoreForLRP(smallCell, instance, 0.0)
+			smallScore, err := defaultAuction.ScoreForLRP(smallCell, instance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(bigScore).To(BeNumerically("<", smallScore), "prefer Cells with more resources")
 		})
@@ -134,9 +139,9 @@ var _ = Describe("Auctionlot", func() {
 			It("factors in starting containers when a weight is provided", func() {
 				startingContainerWeight := 0.25
 
-				busyScore, err := auctionrunner.ScoreForLRP(busyCell, instance, startingContainerWeight)
+				busyScore, err := defaultAuction.ScoreForLRP(busyCell, instance, startingContainerWeight)
 				Expect(err).NotTo(HaveOccurred())
-				boredScore, err := auctionrunner.ScoreForLRP(boredCell, instance, startingContainerWeight)
+				boredScore, err := defaultAuction.ScoreForLRP(boredCell, instance, startingContainerWeight)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(busyScore).To(BeNumerically(">", boredScore), "prefer Cells that have less starting containers")
@@ -155,7 +160,7 @@ var _ = Describe("Auctionlot", func() {
 					[]string{},
 				)
 				smallerWeightCell := auctionrunner.NewCell(logger, "busy-cell", client, smallerWeightState)
-				smallerWeightScore, err := auctionrunner.ScoreForLRP(smallerWeightCell, instance, startingContainerWeight-0.1)
+				smallerWeightScore, err := defaultAuction.ScoreForLRP(smallerWeightCell, instance, startingContainerWeight-0.1)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(busyScore).To(BeNumerically(">", smallerWeightScore), "the number of starting containers is weighted")
@@ -165,9 +170,9 @@ var _ = Describe("Auctionlot", func() {
 				instance = BuildLRP("HA", "domain", 1, linuxRootFSURL, 20, 20, 10, []string{})
 				startingContainerWeight := 0.25
 
-				busyScore, err := auctionrunner.ScoreForLRP(busyCell, instance, startingContainerWeight)
+				busyScore, err := defaultAuction.ScoreForLRP(busyCell, instance, startingContainerWeight)
 				Expect(err).NotTo(HaveOccurred())
-				boredScore, err := auctionrunner.ScoreForLRP(boredCell, instance, startingContainerWeight)
+				boredScore, err := defaultAuction.ScoreForLRP(boredCell, instance, startingContainerWeight)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(busyScore).To(BeNumerically("<", boredScore), "prefer Cells that do not have an instance of self already running")
@@ -176,9 +181,9 @@ var _ = Describe("Auctionlot", func() {
 			It("ignores starting containers when a weight is not provided", func() {
 				startingContainerWeight := 0.0
 
-				busyScore, err := auctionrunner.ScoreForLRP(busyCell, instance, startingContainerWeight)
+				busyScore, err := defaultAuction.ScoreForLRP(busyCell, instance, startingContainerWeight)
 				Expect(err).NotTo(HaveOccurred())
-				boredScore, err := auctionrunner.ScoreForLRP(boredCell, instance, startingContainerWeight)
+				boredScore, err := defaultAuction.ScoreForLRP(boredCell, instance, startingContainerWeight)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(busyScore).To(BeNumerically("==", boredScore), "ignore how many starting Containers a cell has")
@@ -190,11 +195,11 @@ var _ = Describe("Auctionlot", func() {
 			instanceWithOneMatch := BuildLRP("pg-2", "domain", 1, linuxRootFSURL, 10, 10, 10, []string{})
 			instanceWithNoMatches := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 
-			twoMatchesScore, err := auctionrunner.ScoreForLRP(cell, instanceWithTwoMatches, 0.0)
+			twoMatchesScore, err := defaultAuction.ScoreForLRP(cell, instanceWithTwoMatches, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			oneMatchesScore, err := auctionrunner.ScoreForLRP(cell, instanceWithOneMatch, 0.0)
+			oneMatchesScore, err := defaultAuction.ScoreForLRP(cell, instanceWithOneMatch, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			noMatchesScore, err := auctionrunner.ScoreForLRP(cell, instanceWithNoMatches, 0.0)
+			noMatchesScore, err := defaultAuction.ScoreForLRP(cell, instanceWithNoMatches, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(noMatchesScore).To(BeNumerically("<", oneMatchesScore))
@@ -205,7 +210,7 @@ var _ = Describe("Auctionlot", func() {
 			Context("because of memory constraints", func() {
 				It("should error", func() {
 					massiveMemoryInstance := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10000, 10, 1024, []string{})
-					score, err := auctionrunner.ScoreForLRP(cell, massiveMemoryInstance, 0.0)
+					score, err := defaultAuction.ScoreForLRP(cell, massiveMemoryInstance, 0.0)
 					Expect(score).To(BeZero())
 					Expect(err).To(MatchError("insufficient resources: memory"))
 				})
@@ -214,7 +219,7 @@ var _ = Describe("Auctionlot", func() {
 			Context("because of disk constraints", func() {
 				It("should error", func() {
 					massiveDiskInstance := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10, 10000, 1024, []string{})
-					score, err := auctionrunner.ScoreForLRP(cell, massiveDiskInstance, 0.0)
+					score, err := defaultAuction.ScoreForLRP(cell, massiveDiskInstance, 0.0)
 					Expect(score).To(BeZero())
 					Expect(err).To(MatchError("insufficient resources: disk"))
 				})
@@ -225,7 +230,7 @@ var _ = Describe("Auctionlot", func() {
 					instance := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 					zeroState := BuildCellState("the-zone", 100, 100, 0, false, 0, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
 					zeroCell := auctionrunner.NewCell(logger, "zero-cell", client, zeroState)
-					score, err := auctionrunner.ScoreForLRP(zeroCell, instance, 0.0)
+					score, err := defaultAuction.ScoreForLRP(zeroCell, instance, 0.0)
 					Expect(score).To(BeZero())
 					Expect(err).To(MatchError("insufficient resources: containers"))
 				})
@@ -233,12 +238,12 @@ var _ = Describe("Auctionlot", func() {
 		})
 	})
 
-	Describe("BestFitFashion", func() {
+	Describe("BestFit", func() {
 
-		var auctionlot *auctionrunner.AuctionLot
+		var bestFitAuction *auctionrunner.AuctionType
 
 		BeforeEach(func() {
-			auctionlot = auctionrunner.NewAuctionLot(auctionrunner.BestFit)
+			bestFitAuction = auctionrunner.NewAuctionType(auctionrunner.BestFit)
 		})
 
 		It("factors in memory usage", func() {
@@ -246,18 +251,18 @@ var _ = Describe("Auctionlot", func() {
 			smallInstance := BuildLRP("pg-small", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 
 			By("factoring in the amount of memory taken up by the instance")
-			bigScore, err := auctionlot.ScoreForLRP(emptyCell, bigInstance, 0.0)
+			bigScore, err := bestFitAuction.ScoreForLRP(emptyCell, bigInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := auctionlot.ScoreForLRP(emptyCell, smallInstance, 0.0)
+			smallScore, err := bestFitAuction.ScoreForLRP(emptyCell, smallInstance, 0.0)
 
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(smallScore).To(BeNumerically(">", bigScore))
 
 			By("factoring in the relative emptiness of Cells")
-			emptyScore, err := auctionlot.ScoreForLRP(emptyCell, smallInstance, 0.0)
+			emptyScore, err := bestFitAuction.ScoreForLRP(emptyCell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			score, err := auctionlot.ScoreForLRP(cell, smallInstance, 0.0)
+			score, err := bestFitAuction.ScoreForLRP(cell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(emptyScore).To(BeNumerically(">", score))
 		})
@@ -267,17 +272,17 @@ var _ = Describe("Auctionlot", func() {
 			smallInstance := BuildLRP("pg-small", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 
 			By("factoring in the amount of memory taken up by the instance")
-			bigScore, err := auctionlot.ScoreForLRP(emptyCell, bigInstance, 0.0)
+			bigScore, err := bestFitAuction.ScoreForLRP(emptyCell, bigInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := auctionlot.ScoreForLRP(emptyCell, smallInstance, 0.0)
+			smallScore, err := bestFitAuction.ScoreForLRP(emptyCell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(smallScore).To(BeNumerically(">", bigScore))
 
 			By("factoring in the relative emptiness of Cells")
-			emptyScore, err := auctionlot.ScoreForLRP(emptyCell, smallInstance, 0.0)
+			emptyScore, err := bestFitAuction.ScoreForLRP(emptyCell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			score, err := auctionlot.ScoreForLRP(cell, smallInstance, 0.0)
+			score, err := bestFitAuction.ScoreForLRP(cell, smallInstance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(emptyScore).To(BeNumerically(">", score))
 		})
@@ -291,9 +296,9 @@ var _ = Describe("Auctionlot", func() {
 			smallState := BuildCellState("the-zone", 100, 200, 20, false, 0, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
 			smallCell := auctionrunner.NewCell(logger, "small-cell", client, smallState)
 
-			bigScore, err := auctionlot.ScoreForLRP(bigCell, instance, 0.0)
+			bigScore, err := bestFitAuction.ScoreForLRP(bigCell, instance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
-			smallScore, err := auctionlot.ScoreForLRP(smallCell, instance, 0.0)
+			smallScore, err := bestFitAuction.ScoreForLRP(smallCell, instance, 0.0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(bigScore).To(BeNumerically(">", smallScore), "prefer Cells with less resources")
 		})
@@ -302,7 +307,7 @@ var _ = Describe("Auctionlot", func() {
 			Context("because of memory constraints", func() {
 				It("should error", func() {
 					massiveMemoryInstance := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10000, 10, 1024, []string{})
-					score, err := auctionlot.ScoreForLRP(cell, massiveMemoryInstance, 0.0)
+					score, err := bestFitAuction.ScoreForLRP(cell, massiveMemoryInstance, 0.0)
 					Expect(score).To(BeZero())
 					Expect(err).To(MatchError("insufficient resources: memory"))
 				})
@@ -311,7 +316,7 @@ var _ = Describe("Auctionlot", func() {
 			Context("because of disk constraints", func() {
 				It("should error", func() {
 					massiveDiskInstance := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10, 10000, 1024, []string{})
-					score, err := auctionlot.ScoreForLRP(cell, massiveDiskInstance, 0.0)
+					score, err := bestFitAuction.ScoreForLRP(cell, massiveDiskInstance, 0.0)
 					Expect(score).To(BeZero())
 					Expect(err).To(MatchError("insufficient resources: disk"))
 				})
@@ -322,11 +327,12 @@ var _ = Describe("Auctionlot", func() {
 					instance := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 					zeroState := BuildCellState("the-zone", 100, 100, 0, false, 0, linuxOnlyRootFSProviders, nil, []string{}, []string{}, []string{})
 					zeroCell := auctionrunner.NewCell(logger, "zero-cell", client, zeroState)
-					score, err := auctionlot.ScoreForLRP(zeroCell, instance, 0.0)
+					score, err := bestFitAuction.ScoreForLRP(zeroCell, instance, 0.0)
 					Expect(score).To(BeZero())
 					Expect(err).To(MatchError("insufficient resources: containers"))
 				})
 			})
 		})
 	})
+
 })

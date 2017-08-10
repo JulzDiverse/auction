@@ -180,17 +180,23 @@ var _ = Describe("Cell", func() {
 	})
 
 	Describe("ReserveLRP", func() {
+
+		var defaultAuction *auctionrunner.AuctionType
+		BeforeEach(func() {
+			defaultAuction = auctionrunner.NewAuctionType(auctionrunner.DefaultAuction)
+		})
+
 		Context("when there is room for the LRP", func() {
 			It("should register its resources usage and keep it in mind when handling future requests", func() {
 				instance := BuildLRP("pg-test", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 				instanceToAdd := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 
-				initialScore, err := auctionrunner.ScoreForLRP(cell, instance, 0.0)
+				initialScore, err := defaultAuction.ScoreForLRP(cell, instance, 0.0)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(cell.ReserveLRP(instanceToAdd)).To(Succeed())
 
-				subsequentScore, err := auctionrunner.ScoreForLRP(cell, instance, 0.0)
+				subsequentScore, err := defaultAuction.ScoreForLRP(cell, instance, 0.0)
 				Expect(err).NotTo(HaveOccurred())
 				Expect(initialScore).To(BeNumerically("<", subsequentScore), "the score should have gotten worse")
 			})
@@ -200,20 +206,20 @@ var _ = Describe("Cell", func() {
 				instanceWithMatchingProcessGuid := BuildLRP("pg-new", "domain", 1, linuxRootFSURL, 10, 10, 10, []string{})
 				instanceToAdd := BuildLRP("pg-new", "domain", 0, linuxRootFSURL, 10, 10, 10, []string{})
 
-				initialScore, err := auctionrunner.ScoreForLRP(cell, instance, 0.0)
+				initialScore, err := defaultAuction.ScoreForLRP(cell, instance, 0.0)
 				Expect(err).NotTo(HaveOccurred())
 
-				initialScoreForInstanceWithMatchingProcessGuid, err := auctionrunner.ScoreForLRP(cell, instanceWithMatchingProcessGuid, 0.0)
+				initialScoreForInstanceWithMatchingProcessGuid, err := defaultAuction.ScoreForLRP(cell, instanceWithMatchingProcessGuid, 0.0)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(initialScore).To(BeNumerically("==", initialScoreForInstanceWithMatchingProcessGuid))
 
 				Expect(cell.ReserveLRP(instanceToAdd)).To(Succeed())
 
-				subsequentScore, err := auctionrunner.ScoreForLRP(cell, instance, 0.0)
+				subsequentScore, err := defaultAuction.ScoreForLRP(cell, instance, 0.0)
 				Expect(err).NotTo(HaveOccurred())
 
-				subsequentScoreForInstanceWithMatchingProcessGuid, err := auctionrunner.ScoreForLRP(cell, instanceWithMatchingProcessGuid, 0.0)
+				subsequentScoreForInstanceWithMatchingProcessGuid, err := defaultAuction.ScoreForLRP(cell, instanceWithMatchingProcessGuid, 0.0)
 				Expect(err).NotTo(HaveOccurred())
 
 				Expect(initialScore).To(BeNumerically("<", subsequentScore), "the score should have gotten worse")

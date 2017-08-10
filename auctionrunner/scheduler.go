@@ -273,7 +273,7 @@ func (s *Scheduler) runLRPAuction(filteredZones []lrpByZone, lrpAuction *auction
 
 	for zoneIndex, lrpByZone := range filteredZones {
 		for _, cell := range lrpByZone.zone {
-			score, err := cell.CallForBid(&lrpAuction.LRP, s.startingContainerWeight, s.auctionType.AuctionLot.ScoreForLRP)
+			score, err := cell.CallForBid(&lrpAuction.LRP, s.startingContainerWeight, s.auctionType.ScoreForLRP)
 			if err != nil {
 				removeNonApplicableProblems(problems, err)
 				s.logger.Info("schedule-lrp-auction-after-error", lager.Data{"problems": problems, "error": err})

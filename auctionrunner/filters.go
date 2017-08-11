@@ -6,7 +6,7 @@ import (
 )
 
 type TaskZoneFilter func(map[string]Zone, *auctiontypes.TaskAuction, CellFilter) ([]Zone, error)
-type LrpZoneFilter func([]lrpByZone, *auctiontypes.LRPAuction, CellFilter) ([]lrpByZone, error)
+type LrpZoneFilter func([]LrpByZone, *auctiontypes.LRPAuction, CellFilter) ([]LrpByZone, error)
 type CellFilter func(rep.PlacementConstraint, *Zone) ([]*Cell, error)
 
 type FilterTypeFunc func(*AuctionFilter)
@@ -45,7 +45,7 @@ func DefaultTaskFilter(s *AuctionTaskFilter) {
 	s.CellFilter = filterCells
 }
 
-func applyLRPFilters(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, auctionFilters ...*AuctionFilter) ([]lrpByZone, error) {
+func applyLRPFilters(zones []LrpByZone, lrpAuction *auctiontypes.LRPAuction, auctionFilters ...*AuctionFilter) ([]LrpByZone, error) {
 	filteredZones := zones
 	for _, filter := range auctionFilters {
 		tmpFilteredZones, err := filter.ZoneFilter(filteredZones, lrpAuction, filter.CellFilter)
@@ -69,12 +69,12 @@ func applyTaskFilters(zones map[string]Zone, lrpAuction *auctiontypes.TaskAuctio
 	return filteredZones, nil
 }
 
-func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, filterCells CellFilter) ([]lrpByZone, error) {
-	filteredZones := []lrpByZone{}
+func filterZones(zones []LrpByZone, lrpAuction *auctiontypes.LRPAuction, filterCells CellFilter) ([]LrpByZone, error) {
+	filteredZones := []LrpByZone{}
 	var zoneError error
 
 	for _, lrpZone := range zones {
-		cells, err := filterCells(lrpAuction.PlacementConstraint, &lrpZone.zone)
+		cells, err := filterCells(lrpAuction.PlacementConstraint, &lrpZone.Zone)
 		if err != nil {
 			_, isZoneErrorPlacementTagMismatchError := zoneError.(auctiontypes.PlacementTagMismatchError)
 			_, isErrPlacementTagMismatchError := err.(auctiontypes.PlacementTagMismatchError)
@@ -87,9 +87,9 @@ func filterZones(zones []lrpByZone, lrpAuction *auctiontypes.LRPAuction, filterC
 			continue
 		}
 
-		filteredZone := lrpByZone{
-			zone:      Zone(cells),
-			instances: lrpZone.instances,
+		filteredZone := LrpByZone{
+			Zone:      Zone(cells),
+			Instances: lrpZone.Instances,
 		}
 		filteredZones = append(filteredZones, filteredZone)
 	}

@@ -52,14 +52,14 @@ func (c *Cell) CallForTaskBid(task *rep.Task, startingContainerWeight float64, s
 }
 
 func scoreForLRP(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
-	err := c.state.ResourceMatch(&lrp.Resource)
+	err := c.State.ResourceMatch(&lrp.Resource)
 	if err != nil {
 		return 0, err
 	}
 
 	numberOfInstancesWithMatchingProcessGuid := 0
-	for i := range c.state.LRPs {
-		if c.state.LRPs[i].ProcessGuid == lrp.ProcessGuid {
+	for i := range c.State.LRPs {
+		if c.State.LRPs[i].ProcessGuid == lrp.ProcessGuid {
 			numberOfInstancesWithMatchingProcessGuid++
 		}
 	}
@@ -67,30 +67,30 @@ func scoreForLRP(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float6
 	localityScore := LocalityOffset * numberOfInstancesWithMatchingProcessGuid
 	score := rep.NewScoreType(rep.WorstFitFashion)
 
-	resourceScore := score.Compute(&c.state, &lrp.Resource, startingContainerWeight)
+	resourceScore := score.Compute(&c.State, &lrp.Resource, startingContainerWeight)
 
 	return resourceScore + float64(localityScore), nil
 }
 
 func scoreForTask(c *Cell, task *rep.Task, startingContainerWeight float64) (float64, error) {
-	err := c.state.ResourceMatch(&task.Resource)
+	err := c.State.ResourceMatch(&task.Resource)
 	if err != nil {
 		return 0, err
 	}
 
-	localityScore := LocalityOffset * len(c.state.Tasks)
-	resourceScore := c.state.ComputeScore(&task.Resource, startingContainerWeight)
+	localityScore := LocalityOffset * len(c.State.Tasks)
+	resourceScore := c.State.ComputeScore(&task.Resource, startingContainerWeight)
 	return resourceScore + float64(localityScore), nil
 }
 
 func bestFit(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
-	err := c.state.ResourceMatch(&lrp.Resource)
+	err := c.State.ResourceMatch(&lrp.Resource)
 	if err != nil {
 		return 0, err
 	}
 
 	score := rep.NewScoreType(rep.BestFitFashion)
 
-	resourceScore := score.Compute(&c.state, &lrp.Resource, startingContainerWeight)
+	resourceScore := score.Compute(&c.State, &lrp.Resource, startingContainerWeight)
 	return resourceScore, nil
 }

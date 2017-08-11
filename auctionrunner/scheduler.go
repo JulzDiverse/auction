@@ -244,6 +244,8 @@ func (s *Scheduler) scheduleLRPAuction(lrpAuction *auctiontypes.LRPAuction) (*au
 		return nil, err
 	}
 
+	filteredZones = sortZonesByInstances(filteredZones)
+
 	winnerCell, problems := s.runLRPAuction(filteredZones, lrpAuction)
 
 	if winnerCell == nil {
@@ -261,7 +263,7 @@ func (s *Scheduler) scheduleLRPAuction(lrpAuction *auctiontypes.LRPAuction) (*au
 	return &winningAuction, nil
 }
 
-func (s *Scheduler) runLRPAuction(filteredZones []lrpByZone, lrpAuction *auctiontypes.LRPAuction) (*Cell, map[string]struct{}) {
+func (s *Scheduler) runLRPAuction(filteredZones []LrpByZone, lrpAuction *auctiontypes.LRPAuction) (*Cell, map[string]struct{}) {
 	var winnerCell *Cell
 	winnerScore := 1e20
 
@@ -270,7 +272,7 @@ func (s *Scheduler) runLRPAuction(filteredZones []lrpByZone, lrpAuction *auction
 	s.logger.Info("schedule-lrp-auction", lager.Data{"problems": problems})
 
 	for zoneIndex, lrpByZone := range filteredZones {
-		for _, cell := range lrpByZone.zone {
+		for _, cell := range lrpByZone.Zone {
 			score, err := cell.CallForLRPBid(&lrpAuction.LRP, s.startingContainerWeight, s.auctionType.ScoreForLRP)
 			if err != nil {
 				removeNonApplicableProblems(problems, err)
@@ -287,7 +289,7 @@ func (s *Scheduler) runLRPAuction(filteredZones []lrpByZone, lrpAuction *auction
 		// if (not last zone) && (this zone has the same # of instances as the next sorted zone)
 		// acts as a tie breaker
 		if zoneIndex+1 < len(filteredZones) &&
-			lrpByZone.instances == filteredZones[zoneIndex+1].instances {
+			lrpByZone.Instances == filteredZones[zoneIndex+1].Instances {
 			continue
 		}
 

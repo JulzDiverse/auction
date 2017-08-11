@@ -1,4 +1,4 @@
-package fashion
+package auctionfashion
 
 import (
 	ar "code.cloudfoundry.org/auction/auctionrunner"
@@ -26,8 +26,8 @@ func newAuctionTaskFilter(option ar.TaskFilterTypeFunc) *ar.AuctionTaskFilter {
 func DefaultAuction(at *ar.AuctionType) {
 	df := newAuctionFilter(defaultFilter)
 	dtf := newAuctionTaskFilter(defaultTaskFilter)
-	filters := []*AuctionFilter{df}
-	taskFilters := []*AuctionTaskFilter{dtf}
+	filters := []*ar.AuctionFilter{df}
+	taskFilters := []*ar.AuctionTaskFilter{dtf}
 	at.ScoreForLRP = scoreForLRP
 	at.AuctionFilters = filters
 	at.ScoreForTask = scoreForTask
@@ -35,10 +35,10 @@ func DefaultAuction(at *ar.AuctionType) {
 }
 
 func BestFit(at *ar.AuctionType) {
-	defaultFilter := NewAuctionFilter(DefaultFilter)
-	defaultTaskFilter := NewAuctionTaskFilter(DefaultTaskFilter)
-	filters := []*AuctionFilter{defaultFilter}
-	taskFilters := []*AuctionTaskFilter{defaultTaskFilter}
+	defaultFilter := newAuctionFilter(defaultFilter)
+	defaultTaskFilter := newAuctionTaskFilter(defaultTaskFilter)
+	filters := []*ar.AuctionFilter{defaultFilter}
+	taskFilters := []*ar.AuctionTaskFilter{defaultTaskFilter}
 	at.ScoreForLRP = bestFit
 	at.AuctionFilters = filters
 	at.ScoreForTask = scoreForTask

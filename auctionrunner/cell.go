@@ -11,7 +11,7 @@ type Cell struct {
 	logger lager.Logger
 	Guid   string
 	client rep.Client
-	state  rep.CellState
+	State  rep.CellState
 
 	workToCommit rep.Work
 }
@@ -21,45 +21,45 @@ func NewCell(logger lager.Logger, guid string, client rep.Client, state rep.Cell
 		logger: logger,
 		Guid:   guid,
 		client: client,
-		state:  state,
+		State:  state,
 	}
 }
 
 func (c *Cell) StartingContainerCount() int {
-	return c.state.StartingContainerCount
+	return c.State.StartingContainerCount
 }
 
 func (c *Cell) MatchRootFS(rootFS string) bool {
-	return c.state.MatchRootFS(rootFS)
+	return c.State.MatchRootFS(rootFS)
 }
 
 func (c *Cell) MatchVolumeDrivers(volumeDrivers []string) bool {
-	return c.state.MatchVolumeDrivers(volumeDrivers)
+	return c.State.MatchVolumeDrivers(volumeDrivers)
 }
 
 func (c *Cell) MatchPlacementTags(placementTags []string) bool {
 	// fmt.Printf("cell to match against is [%s]\n", c.Guid)
-	return c.state.MatchPlacementTags(placementTags)
+	return c.State.MatchPlacementTags(placementTags)
 }
 
 func (c *Cell) ReserveLRP(lrp *rep.LRP) error {
-	err := c.state.ResourceMatch(&lrp.Resource)
+	err := c.State.ResourceMatch(&lrp.Resource)
 	if err != nil {
 		return err
 	}
 
-	c.state.AddLRP(lrp)
+	c.State.AddLRP(lrp)
 	c.workToCommit.LRPs = append(c.workToCommit.LRPs, *lrp)
 	return nil
 }
 
 func (c *Cell) ReserveTask(task *rep.Task) error {
-	err := c.state.ResourceMatch(&task.Resource)
+	err := c.State.ResourceMatch(&task.Resource)
 	if err != nil {
 		return err
 	}
 
-	c.state.AddTask(task)
+	c.State.AddTask(task)
 	c.workToCommit.Tasks = append(c.workToCommit.Tasks, *task)
 	return nil
 }

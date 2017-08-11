@@ -9,6 +9,11 @@ type lrpByZone struct {
 	instances int
 }
 
+type LrpByZone struct {
+	zone      Zone
+	instances int
+}
+
 type zoneSorterByInstances struct {
 	zones []lrpByZone
 }

@@ -3,6 +3,7 @@ package auctionrunner_test
 import (
 	"errors"
 
+	"code.cloudfoundry.org/auction/auctionfashion"
 	"code.cloudfoundry.org/auction/auctionrunner"
 	"code.cloudfoundry.org/rep"
 	"code.cloudfoundry.org/rep/repfakes"
@@ -35,7 +36,7 @@ var _ = Describe("Cell", func() {
 			[]string{},
 		)
 		cell = auctionrunner.NewCell(logger, "the-cell", client, state)
-		defaultAuction = auctionrunner.NewAuctionType(auctionrunner.DefaultAuction)
+		defaultAuction = auctionfashion.NewAuctionType(auctionfashion.DefaultAuction)
 	})
 
 	Describe("ReserveLRP", func() {

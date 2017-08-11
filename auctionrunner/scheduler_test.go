@@ -7,6 +7,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"code.cloudfoundry.org/workpool"
 
+	"code.cloudfoundry.org/auction/auctionfashion"
 	"code.cloudfoundry.org/auction/auctionrunner"
 	"code.cloudfoundry.org/auction/auctiontypes"
 	"code.cloudfoundry.org/rep"
@@ -41,7 +42,7 @@ var _ = Describe("Scheduler", func() {
 		logger = lager.NewLogger("fakelogger")
 		logger.RegisterSink(lager.NewWriterSink(GinkgoWriter, lager.DEBUG))
 
-		auctionType = auctionrunner.NewAuctionType(auctionrunner.DefaultAuction)
+		auctionType = auctionfashion.NewAuctionType(auctionfashion.DefaultAuction)
 
 		scheduler = auctionrunner.NewScheduler(workPool, map[string]auctionrunner.Zone{}, clock, logger, 0.0, 0, auctionType)
 	})
@@ -365,13 +366,9 @@ var _ = Describe("Scheduler", func() {
 					Expect(len(results.SuccessfulLRPs)).To(Equal(0))
 					Expect(len(results.FailedLRPs)).To(Equal(1))
 					Expect(results.FailedLRPs[0].LRP).To(Equal(startAuction.LRP))
-<<<<<<< HEAD
-					Expect(results.FailedLRPs[0].AuctionRecord.PlacementError).To(ContainSubstring("found no compatible cell with placement tags \"oink\" and \"kakaaaaa\""))
-=======
 					Expect(results.FailedLRPs[0].AuctionRecord.PlacementError).To(ContainSubstring("found no compatible cell with placement tags "))
 					Expect(results.FailedLRPs[0].AuctionRecord.PlacementError).To(ContainSubstring("\"kakaaaaa\""))
 					Expect(results.FailedLRPs[0].AuctionRecord.PlacementError).To(ContainSubstring("\"oink\""))
->>>>>>> fdb758ce6d9283545b27d4f610e3da8567a482fe
 				})
 			})
 

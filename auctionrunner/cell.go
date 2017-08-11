@@ -25,6 +25,16 @@ func NewCell(logger lager.Logger, guid string, client rep.Client, state rep.Cell
 	}
 }
 
+func (c *Cell) CallForLRPBid(lrp *rep.LRP, startingContainerWeight float64, sf ScoringFunc) (float64, error) {
+	score, err := sf(c, lrp, startingContainerWeight)
+	return score, err
+}
+
+func (c *Cell) CallForTaskBid(task *rep.Task, startingContainerWeight float64, sf ScoringFuncTask) (float64, error) {
+	score, err := sf(c, task, startingContainerWeight)
+	return score, err
+}
+
 func (c *Cell) StartingContainerCount() int {
 	return c.State.StartingContainerCount
 }

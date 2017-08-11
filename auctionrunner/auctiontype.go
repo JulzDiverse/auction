@@ -1,10 +1,30 @@
 package auctionrunner
 
-import "code.cloudfoundry.org/rep"
+import (
+	"code.cloudfoundry.org/auction/auctiontypes"
+	"code.cloudfoundry.org/rep"
+)
 
 type ScoringFunc func(*Cell, *rep.LRP, float64) (float64, error)
 type ScoringFuncTask func(*Cell, *rep.Task, float64) (float64, error)
 type AuctionTypeFunc func(*AuctionType)
+type TaskZoneFilter func(map[string]Zone, *auctiontypes.TaskAuction, CellFilter) ([]Zone, error)
+type LrpZoneFilter func([]LrpByZone, *auctiontypes.LRPAuction, CellFilter) ([]LrpByZone, error)
+type CellFilter func(rep.PlacementConstraint, *Zone) ([]*Cell, error)
+
+type FilterTypeFunc func(*AuctionFilter)
+type TaskFilterTypeFunc func(*AuctionTaskFilter)
+
+type AuctionFilter struct {
+	ZoneFilter     LrpZoneFilter
+	CellFilter     CellFilter
+	TaskZoneFilter TaskZoneFilter
+}
+
+type AuctionTaskFilter struct {
+	CellFilter CellFilter
+	ZoneFilter TaskZoneFilter
+}
 
 type AuctionType struct {
 	ScoreForLRP        ScoringFunc
@@ -13,84 +33,26 @@ type AuctionType struct {
 	AuctionTaskFilters []*AuctionTaskFilter
 }
 
-func NewAuctionType(atf AuctionTypeFunc) *AuctionType {
-	var at AuctionType
-	atf(&at)
-	return &at
-}
-
-func DefaultAuction(at *AuctionType) {
-	defaultFilter := NewAuctionFilter(DefaultFilter)
-	defaultTaskFilter := NewAuctionTaskFilter(DefaultTaskFilter)
-	filters := []*AuctionFilter{defaultFilter}
-	taskFilters := []*AuctionTaskFilter{defaultTaskFilter}
-	at.ScoreForLRP = scoreForLRP
-	at.AuctionFilters = filters
-	at.ScoreForTask = scoreForTask
-	at.AuctionTaskFilters = taskFilters
-}
-
-func BestFit(at *AuctionType) {
-	defaultFilter := NewAuctionFilter(DefaultFilter)
-	defaultTaskFilter := NewAuctionTaskFilter(DefaultTaskFilter)
-	filters := []*AuctionFilter{defaultFilter}
-	taskFilters := []*AuctionTaskFilter{defaultTaskFilter}
-	at.ScoreForLRP = bestFit
-	at.AuctionFilters = filters
-	at.ScoreForTask = scoreForTask
-	at.AuctionTaskFilters = taskFilters
-}
-
-func (c *Cell) CallForLRPBid(lrp *rep.LRP, startingContainerWeight float64, sf ScoringFunc) (float64, error) {
-	score, err := sf(c, lrp, startingContainerWeight)
-	return score, err
-}
-
-func (c *Cell) CallForTaskBid(task *rep.Task, startingContainerWeight float64, sf ScoringFuncTask) (float64, error) {
-	score, err := sf(c, task, startingContainerWeight)
-	return score, err
-}
-
-func scoreForLRP(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
-	err := c.State.ResourceMatch(&lrp.Resource)
-	if err != nil {
-		return 0, err
-	}
-
-	numberOfInstancesWithMatchingProcessGuid := 0
-	for i := range c.State.LRPs {
-		if c.State.LRPs[i].ProcessGuid == lrp.ProcessGuid {
-			numberOfInstancesWithMatchingProcessGuid++
+func applyLRPFilters(zones []LrpByZone, lrpAuction *auctiontypes.LRPAuction, auctionFilters ...*AuctionFilter) ([]LrpByZone, error) {
+	filteredZones := zones
+	for _, filter := range auctionFilters {
+		tmpFilteredZones, err := filter.ZoneFilter(filteredZones, lrpAuction, filter.CellFilter)
+		if err != nil {
+			return nil, err
 		}
+		filteredZones = tmpFilteredZones
 	}
-
-	localityScore := LocalityOffset * numberOfInstancesWithMatchingProcessGuid
-	score := rep.NewScoreType(rep.WorstFitFashion)
-
-	resourceScore := score.Compute(&c.State, &lrp.Resource, startingContainerWeight)
-
-	return resourceScore + float64(localityScore), nil
+	return filteredZones, nil
 }
 
-func scoreForTask(c *Cell, task *rep.Task, startingContainerWeight float64) (float64, error) {
-	err := c.State.ResourceMatch(&task.Resource)
-	if err != nil {
-		return 0, err
+func applyTaskFilters(zones map[string]Zone, lrpAuction *auctiontypes.TaskAuction, auctionFilters ...*AuctionTaskFilter) ([]Zone, error) {
+	filteredZones := []Zone{}
+	for _, filter := range auctionFilters {
+		tmpFilteredZones, err := filter.ZoneFilter(zones, lrpAuction, filter.CellFilter)
+		if err != nil {
+			return nil, err
+		}
+		filteredZones = tmpFilteredZones
 	}
-
-	localityScore := LocalityOffset * len(c.State.Tasks)
-	resourceScore := c.State.ComputeScore(&task.Resource, startingContainerWeight)
-	return resourceScore + float64(localityScore), nil
-}
-
-func bestFit(c *Cell, lrp *rep.LRP, startingContainerWeight float64) (float64, error) {
-	err := c.State.ResourceMatch(&lrp.Resource)
-	if err != nil {
-		return 0, err
-	}
-
-	score := rep.NewScoreType(rep.BestFitFashion)
-
-	resourceScore := score.Compute(&c.State, &lrp.Resource, startingContainerWeight)
-	return resourceScore, nil
+	return filteredZones, nil
 }

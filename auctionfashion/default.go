@@ -6,6 +6,17 @@ import (
 	"code.cloudfoundry.org/rep"
 )
 
+func DefaultAuction(at *ar.AuctionType) {
+	df := newAuctionFilter(defaultFilter)
+	dtf := newAuctionTaskFilter(defaultTaskFilter)
+	filters := []*ar.AuctionFilter{df}
+	taskFilters := []*ar.AuctionTaskFilter{dtf}
+	at.ScoreForLRP = scoreForLRP
+	at.AuctionFilters = filters
+	at.ScoreForTask = scoreForTask
+	at.AuctionTaskFilters = taskFilters
+}
+
 func defaultFilter(s *ar.AuctionFilter) {
 	s.ZoneFilter = filterZones
 	s.CellFilter = filterCells

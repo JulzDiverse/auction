@@ -21,26 +21,3 @@ func newAuctionTaskFilter(option ar.TaskFilterTypeFunc) *ar.AuctionTaskFilter {
 	option(&s)
 	return &s
 }
-
-//*******************  Auction Types  ***********************************
-func DefaultAuction(at *ar.AuctionType) {
-	df := newAuctionFilter(defaultFilter)
-	dtf := newAuctionTaskFilter(defaultTaskFilter)
-	filters := []*ar.AuctionFilter{df}
-	taskFilters := []*ar.AuctionTaskFilter{dtf}
-	at.ScoreForLRP = scoreForLRP
-	at.AuctionFilters = filters
-	at.ScoreForTask = scoreForTask
-	at.AuctionTaskFilters = taskFilters
-}
-
-func BestFit(at *ar.AuctionType) {
-	defaultFilter := newAuctionFilter(defaultFilter)
-	defaultTaskFilter := newAuctionTaskFilter(defaultTaskFilter)
-	filters := []*ar.AuctionFilter{defaultFilter}
-	taskFilters := []*ar.AuctionTaskFilter{defaultTaskFilter}
-	at.ScoreForLRP = bestFit
-	at.AuctionFilters = filters
-	at.ScoreForTask = scoreForTask
-	at.AuctionTaskFilters = taskFilters
-}

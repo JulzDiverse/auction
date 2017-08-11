@@ -237,11 +237,6 @@ var _ = Describe("DefaultAuction", func() {
 	})
 
 	Describe("ScoreForTask", func() {
-		var defaultAuction *auctionrunner.AuctionType
-		BeforeEach(func() {
-			defaultAuction = auctionrunner.NewAuctionType(auctionrunner.DefaultAuction)
-		})
-
 		It("factors in number of tasks currently running", func() {
 			bigTask := BuildTask("tg-big", "domain", linuxRootFSURL, 20, 10, 10, []string{}, []string{})
 			smallTask := BuildTask("tg-small", "domain", linuxRootFSURL, 10, 10, 10, []string{}, []string{})
